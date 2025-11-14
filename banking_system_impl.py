@@ -2,7 +2,7 @@ from banking_system import BankingSystem
 from account import Account
 from transaction import Transaction
 import heapq 
-
+import pdb
 class BankingSystemImpl():
 
     def __init__(self):
@@ -36,15 +36,28 @@ class BankingSystemImpl():
         """class method that updates the banking system's scheduled payments"""
         def decorator_update_transactions(self, *args, **kwargs):
             if self.scheduled_transactions:
-                while args[0] > self.scheduled_transactions[0].timestamp:
-                    transaction = self.scheduled_transations[0]
-                    self.deposit(transaction.timestamp, transaction.account_id, transaction.amount)
-                    transaction.status = "CASHBACK_RECEIVED"
+                timestamp = args[0] #current timestamp
+                while self.scheduled_transactions and self.scheduled_transactions[0].timestamp < timestamp:
+                    #print(args[0])
+                    transaction = self.scheduled_transactions[0]
+                    self.deposit(transaction.timestamp, transaction.source_id, transaction.amount)
+                    og_transaction = self.payments[transaction.payment_id]
+                    og_transaction.status = "CASHBACK_RECEIVED"
+                    heapq.heappop(self.scheduled_transactions)
+                    if self.scheduled_transactions and timestamp == self.scheduled_transactions[0].timestamp:
+                        final_t = self.scheduled_transactions[0]
+                        #print(final_t.timestamp, final_t.source_id, final_t.amount)
+                        self.deposit(final_t.timestamp, final_t.source_id, final_t.amount)
+                        og_transaction = self.payments[final_t.payment_id]
+                        og_transaction.status = "CASHBACK_RECEIVED"
+                        #print("Inner if loop :Status changed!")
+                        heapq.heappop(self.scheduled_transactions)
             self.sorted_spenders = sorted(self.sorted_spenders, key = lambda s: (-s.spent, s.account_id))
             result = func(self,*args, **kwargs)
             return result
         return decorator_update_transactions
    
+    @update_transactions
     def deposit(self, timestamp: int, account_id: str, amount: int) -> int | None:
         """
         Should deposit the given `amount` of money to the specified
@@ -60,9 +73,10 @@ class BankingSystemImpl():
         if acct is None:
             return None
         acct.balance += amount
-        self.transactions[account_id].append(Transaction(account_id, amount, timestamp))
+        #self.transactions[account_id].append(Transaction(account_id, amount, timestamp))
         return acct.balance
 
+    @update_transactions
     def transfer(self, timestamp: int, source_account_id: str, target_account_id: str, amount: int) -> int | None:
         """
         Should transfer the given amount of money from account
@@ -175,19 +189,25 @@ class BankingSystemImpl():
             transaction = Transaction(account_id, amount, timestamp)
             self.transactions.get(account_id).append(transaction)
             self.num_payments +=1
-            self.accounts_dir.get(account_id).spent += amount
+            acct = self.accounts_dir.get(account_id)
+            acct.spent += amount
+            acct.balance -= amount
             transaction.status = "IN_PROGRESS"
             transaction.cashback_timestamp = timestamp + 86400000
-            future_deposit = Transaction(account_id, amount * .02, transaction.cashback_timestamp)
-            self.transactions.get(account_id, future_deposit)
+            payment_id = f"payment{self.num_payments}"
+            future_deposit = Transaction(account_id, int(amount * .02), transaction.cashback_timestamp, payment_id=payment_id)
+            #print(f"{transaction.cashback_timestamp}: {account_id}, balance: {acct.balance}, cashback: {int(amount * 0.02)}")
+            #self.transactions.get(account_id, future_deposit)
             #push onto heap
             heapq.heappush(self.scheduled_transactions, future_deposit)
+            heapq.heapify(self.scheduled_transactions)
             payment_id = f"payment{self.num_payments}"
             self.payments[payment_id] = transaction
             return payment_id
         else:
             return None
 
+    @update_transactions
     def get_payment_status(self, timestamp: int, account_id: str, payment: str) -> str | None:
         """
         Should return the status of the payment transaction for the
@@ -245,7 +265,7 @@ class BankingSystemImpl():
         if account_id_1 is None or account_id_2 is None:
             return False
         for i in self.scheduled_transactions:
-            if i.Transaction.account_id == account_id_2:
+            if i.Transaction.source_id == account_id_2:
                 account_id_1.balance += account_id_2.amount # process scheduled cashbacks
         
         #After the merge, it must be possible to check the status of payment transactions for account_id_2 with payment identifiers by
