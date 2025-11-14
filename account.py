@@ -9,6 +9,6 @@ class Account:
         self.timestamp = timestamp  #2025-11-11 18:27:09.095745
         self.balance = balance
         self.account_id = account_id
-        self.spent
+        self.spent = 0
 
         

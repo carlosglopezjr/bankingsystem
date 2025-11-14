@@ -1,7 +1,7 @@
 from banking_system import BankingSystem
 from account import Account
 from transaction import Transaction
-import heapq
+import heapq 
 
 class BankingSystemImpl():
 
@@ -13,6 +13,7 @@ class BankingSystemImpl():
         self.clock = 0
         self.scheduled_transactions = [] #(Transaction(account_id...))
         self.num_payments = 0
+        self.sorted_spenders = []
 
     def create_account(self, timestamp: int, account_id: str) -> bool:
         """
@@ -27,9 +28,23 @@ class BankingSystemImpl():
             return False
         else:
             self.accounts_dir[account_id] = Account(account_id, timestamp) 
-            self.transactions[account_id] = []           
+            self.transactions[account_id] = []
+            self.sorted_spenders.append(self.accounts_dir[account_id])          
             return True
-
+    
+    def update_transactions(func):
+        """class method that updates the banking system's scheduled payments"""
+        def decorator_update_transactions(self, *args, **kwargs):
+            if self.scheduled_transactions:
+                while args[0] > self.scheduled_transactions[0].timestamp:
+                    transaction = self.scheduled_transations[0]
+                    self.deposit(transaction.timestamp, transaction.account_id, transaction.amount)
+                    transaction.status = "CASHBACK_RECEIVED"
+            self.sorted_spenders = sorted(self.sorted_spenders, key = lambda s: (-s.spent, s.account_id))
+            result = func(self,*args, **kwargs)
+            return result
+        return decorator_update_transactions
+   
     def deposit(self, timestamp: int, account_id: str, amount: int) -> int | None:
         """
         Should deposit the given `amount` of money to the specified
@@ -63,7 +78,7 @@ class BankingSystemImpl():
         """
         #  implementation
         src = self.accounts_dir.get(source_account_id)
-        dst = self.account_dir.get(target_account_id)
+        dst = self.accounts_dir.get(target_account_id)
         if src is None or dst is None or source_account_id == target_account_id:
             return None
         if src.balance < amount:
@@ -73,6 +88,7 @@ class BankingSystemImpl():
         dst.balance += amount
         return src.balance
 
+    @update_transactions
     def top_spenders(self, timestamp: int, n: int) -> list[str]:
         """
         Should return the identifiers of the top `n` accounts with
@@ -93,15 +109,36 @@ class BankingSystemImpl():
         """
         #implementation
         #return []
+        
+        return [f"{s.account_id}({s.spent})" for s in self.sorted_spenders[:n]]
+
+        '''
         pairs = []
         for acc_id, act in self.accounts_dir.items():
             pairs.append ((acc_id,acc.outgoing))
         pairs.sort(key=lambda x: (-x[1],x[0]))
         result =[]
         for acc_id, total in pairs[:max(0, n)]:
-            results.append(f"{acct_id({total})}")
-        return results
-
+            result.append(f"{acct_id({total})}")
+        
+        return result
+        
+        #pseduocode bd test wrapper
+       """ 
+       class Spender:
+            def_init__(self, account_id:str, out)
+            self.account_id = account_id
+            self.outgoing = outgoing
+            
+       def top_spenders(self, timestamp: int, n: int) -> list[str]:
+           spender = []
+           for account_id, acc in self.accounts_dir.items():
+               spenders.append(Spender(acc_id, acc.outgoing))
+               
+            spenders.sort(key=lamba s: (-s.outgoing, s.account_id))
+           return [f"{s.account_id}({s.outgoing})" for s in spenders[:n]]"""
+        '''
+    @update_transactions
     def pay(self, timestamp: int, account_id: str, amount: int) -> str | None:
         """
         Should withdraw the given amount of money from the specified
@@ -142,6 +179,7 @@ class BankingSystemImpl():
             transaction.status = "IN_PROGRESS"
             transaction.cashback_timestamp = timestamp + 86400000
             future_deposit = Transaction(account_id, amount * .02, transaction.cashback_timestamp)
+            self.transactions.get(account_id, future_deposit)
             #push onto heap
             heapq.heappush(self.scheduled_transactions, future_deposit)
             payment_id = f"payment{self.num_payments}"
@@ -175,7 +213,6 @@ class BankingSystemImpl():
             return transaction.status
 
         
-
     def merge_accounts(self, timestamp: int, account_id_1: str, account_id_2: str) -> bool:
         """
         Should merge `account_id_2` into the `account_id_1`.
@@ -226,6 +263,7 @@ class BankingSystemImpl():
         #return False
         pass
 
+    @update_transactions
     def get_balance(self, timestamp: int, account_id: str, time_at: int) -> int | None:
         """
         Should return the total amount of money in the account
@@ -242,14 +280,15 @@ class BankingSystemImpl():
         account_transactions = self.transactions.get(account_id)
         if account_transactions is None:
             return None
-        if accounts_dir.get(account_id).timestamp > time_at: # creation of account is after time_at
+        if self.accounts_dir.get(account_id).timestamp > time_at: # creation of account is after time_at
             return None
         pass
-    @classmethod
-    def update_transactions(cls, func):
-        """"class method that updates the banking system's scheduled payments
-        """
+    
+    
+            # deposit()
+            # timestamp: int, account_id: str, amount: int
+    
 
     # TODO: implement interface methods here
-bofa = BankingSystemImpl()
-bofa.create_account(1,"account1")
+# bofa = BankingSystemImpl()
+# bofa.create_account(1,"account1")

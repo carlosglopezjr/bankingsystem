@@ -13,7 +13,7 @@ class Transaction:
 
     #def __eq__(self, other):
 
-    def __lt__(self, other: Transaction):
+    def __lt__(self, other):
         return self.timestamp < other.timestamp
     
 '''
