@@ -74,9 +74,9 @@ class BankingSystemImpl():
         if acct is None:
             return None
         acct.balance += amount
-        heapq.heappush_max(self.completed_transactions, Transaction(account_id, amount, timestamp))
-        heapq.heapify_max(self.completed_transactions)
-        
+        #heapq.heappush_max(self.completed_transactions, Transaction(account_id, amount, timestamp))
+        #heapq.heapify_max(self.completed_transactions)
+
         return acct.balance
 
     @update_transactions
@@ -230,7 +230,7 @@ class BankingSystemImpl():
           `"IN_PROGRESS"` or `"CASHBACK_RECEIVED"`.
         """
         #  implementation
-        if self.accounts_dir.get(account_id) is None:
+        """if self.accounts_dir.get(account_id) is None:
             return None
         elif self.payments.get(payment) is None:
             return None
@@ -241,7 +241,14 @@ class BankingSystemImpl():
                 pass # check the most recently added value to the heapq
             else:
                 transaction = self.payments.get(payment)
-                return transaction.status
+                return transaction.status"""
+        
+        transaction = self.payments.get(payment)
+        acc = self.accounts_dir.get(account_id)
+        if transaction is None or acc is None or transaction.source_id != account_id:
+            return None
+        
+        return transaction.status
 
         
     def merge_accounts(self, timestamp: int, account_id_1: str, account_id_2: str) -> bool:
