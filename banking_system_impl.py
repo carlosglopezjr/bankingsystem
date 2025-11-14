@@ -12,6 +12,7 @@ class BankingSystemImpl():
         self.payments = dict() # payment directory
         self.clock = 0
         self.scheduled_transactions = [] #(Transaction(account_id...))
+        self.completed_transactions = []
         self.num_payments = 0
         self.sorted_spenders = []
 
@@ -41,9 +42,11 @@ class BankingSystemImpl():
                     #print(args[0])
                     transaction = self.scheduled_transactions[0]
                     self.deposit(transaction.timestamp, transaction.source_id, transaction.amount)
+                    heapq.heappop(self.scheduled_transactions)
+                    heapq.heappush(self.completed_transactions, transaction)
+                    heapq.heapify(self.completed_transactions)
                     og_transaction = self.payments[transaction.payment_id]
                     og_transaction.status = "CASHBACK_RECEIVED"
-                    heapq.heappop(self.scheduled_transactions)
                     if self.scheduled_transactions and timestamp == self.scheduled_transactions[0].timestamp:
                         final_t = self.scheduled_transactions[0]
                         #print(final_t.timestamp, final_t.source_id, final_t.amount)
@@ -52,6 +55,8 @@ class BankingSystemImpl():
                         og_transaction.status = "CASHBACK_RECEIVED"
                         #print("Inner if loop :Status changed!")
                         heapq.heappop(self.scheduled_transactions)
+                        heapq.heappush(self.completed_transactions, final_t)
+                        heapq.heapify(self.completed_transactions)
             self.sorted_spenders = sorted(self.sorted_spenders, key = lambda s: (-s.spent, s.account_id))
             result = func(self,*args, **kwargs)
             return result
@@ -73,7 +78,8 @@ class BankingSystemImpl():
         if acct is None:
             return None
         acct.balance += amount
-        #self.transactions[account_id].append(Transaction(account_id, amount, timestamp))
+        heapq.heappush_max(self.completed_transactions, Transaction(account_id, amount, timestamp))
+        heapq.heapify_max(self.completed_transactions)
         return acct.balance
 
     @update_transactions
@@ -92,6 +98,8 @@ class BankingSystemImpl():
         """
         #  implementation
         src = self.accounts_dir.get(source_account_id)
+        heapq.heappush(self.completed_transactions, Transaction(source_account_id, amount, timestamp))
+        heapq.heapify(self.completed_transactions)
         dst = self.accounts_dir.get(target_account_id)
         if src is None or dst is None or source_account_id == target_account_id:
             return None
@@ -99,7 +107,7 @@ class BankingSystemImpl():
             return None
         src.balance -= amount
         src.spent += amount
-        dst.balance += amount
+        self.deposit(timestamp, target_account_id, amount)
         return src.balance
 
     @update_transactions
@@ -229,8 +237,11 @@ class BankingSystemImpl():
         elif self.payments.get(payment).source_id != account_id:
             return None
         else:
-            transaction = self.payments.get(payment)
-            return transaction.status
+            if timestamp < self.completed_transactions[-1]:
+                pass # check the most recently added value to the heapq
+            else:
+                transaction = self.payments.get(payment)
+                return transaction.status
 
         
     def merge_accounts(self, timestamp: int, account_id_1: str, account_id_2: str) -> bool:
