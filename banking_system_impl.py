@@ -268,8 +268,10 @@ class BankingSystemImpl():
           * After the merge, it must be possible to check the status
           of payment transactions for `account_id_2` with payment
           identifiers by replacing `account_id_2` with `account_id_1`.
+
           * The balance of `account_id_2` should be added to the
           balance for `account_id_1`.
+
           * `top_spenders` operations should recognize merged accounts
           - the total outgoing transactions for merged accounts should
           be the sum of all money transferred and/or withdrawn in both
@@ -282,24 +284,29 @@ class BankingSystemImpl():
             return False
         if account_id_1 is None or account_id_2 is None:
             return False
+        if not account_id_1 or not account_id_2:
+            return False
+
+
         for i in self.scheduled_transactions:
+            print(i)
             if i.source_id == account_id_2:
-                account_id_1.balance += account_id_2.amount # process scheduled cashbacks
-        
-        #After the merge, it must be possible to check the status of payment transactions for account_id_2 with payment identifiers by
-        #replaying account_id_2 with account_id_1
+                i.source_id = account_id_1
 
+        acct1 = self.accounts_dir.get(account_id_1)
+        acct2 = self.accounts_dir.get(account_id_2)
+        if acct1 is None or acct2 is None:
+            return False
 
+        acct1.balance += acct2.balance
+        acct1.spent += acct2.spent
+        print(f"Account id changed, merged {account_id_2} into {account_id_1}")
 
-        account_id_1.balance += account_id_2.balance #transfer balance of account2 to account1
-        
-        #top_spenders operations should recognize merged accounts - the total outgoing transactions for merged accounts should be the sum of all money
-        # transfered and/or withdrawn in both accounts
+        self.accounts_dir.pop(account_id_2,None)
 
-        #account_id_2 should be removed from the system after the merge
-            
-        #return False
-        pass
+        self.sorted_spenders = [ acc for acc in self.sorted_spenders if acc.account_id != account_id_2]
+
+        return True
 
     @update_transactions
     def get_balance(self, timestamp: int, account_id: str, time_at: int) -> int | None:
