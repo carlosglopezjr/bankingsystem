@@ -333,6 +333,29 @@ class BankingSystemImpl():
             # deposit()
             # timestamp: int, account_id: str, amount: int
     
+    """@update_transactions
+def get_balance(self, timestamp: int, account_id: str, time_at: int) -> int | None:
+    """
+    Should return the total amount of money in the account
+    `account_id` at the given timestamp `time_at`.
+    """
+    acct = self.accounts_dir.get(account_id)
+    if acct is None:
+        return None
+
+    if acct.timestamp > time_at:
+        return None
+
+    txs = self.transactions.get(account_id, [])
+    
+    balance = 0
+    for tx in sorted(txs, key=lambda t: t.timestamp):
+        if tx.timestamp <= time_at:
+            balance += tx.amount
+        else:
+            break
+
+    return balance"""
 
     # TODO: implement interface methods here
 # bofa = BankingSystemImpl()
