@@ -13,6 +13,8 @@ class BankingSystemImpl():
         self.clock = 0
         self.scheduled_transactions = [] #(Transaction(account_id...))
         self.completed_transactions = []
+        self.archived_transactions = dict() # by account
+        self.archived_accounts = dict()
         self.num_payments = 0
         self.sorted_spenders = []
 
@@ -39,19 +41,14 @@ class BankingSystemImpl():
             if self.scheduled_transactions:
                 timestamp = args[0] #current timestamp
                 while self.scheduled_transactions and self.scheduled_transactions[0].timestamp <= timestamp:
-                    #print(args[0])
+                
                     transaction = self.scheduled_transactions[0]
-                    #removed
-                    #since the cash back is already part of the account transactions;
-                    #avoid creating a duplicate deposit by manually updating balance
-                    #this is important for the later get_balance implementation
-                    #self.deposit(transaction.timestamp, transaction.source_id, transaction.amount)
+             
                     curr_account = self.accounts_dir[transaction.source_id]
                     curr_account.balance += transaction.amount
                     og_transaction = self.payments[transaction.payment_id]
                     og_transaction.status = "CASHBACK_RECEIVED"
                     heapq.heappop(self.scheduled_transactions)
-                    #removed if statement; rolled into while loop with <=
 
             self.sorted_spenders = sorted(self.sorted_spenders, key = lambda s: (-s.spent, s.account_id))
             result = func(self,*args, **kwargs)
@@ -74,8 +71,8 @@ class BankingSystemImpl():
         if acct is None:
             return None
         acct.balance += amount
-        #heapq.heappush_max(self.completed_transactions, Transaction(account_id, amount, timestamp))
-        #heapq.heapify_max(self.completed_transactions)
+        self.transactions[account_id].append(Transaction(account_id, amount, timestamp))
+  
 
         return acct.balance
 
@@ -104,6 +101,7 @@ class BankingSystemImpl():
             return None
         src.balance -= amount
         src.spent += amount
+        self.transactions[source_account_id].append(Transaction(source_account_id,-amount, timestamp))
         self.deposit(timestamp, target_account_id, amount)
         return src.balance
 
@@ -131,32 +129,6 @@ class BankingSystemImpl():
         
         return [f"{s.account_id}({s.spent})" for s in self.sorted_spenders[:n]]
 
-        '''
-        pairs = []
-        for acc_id, act in self.accounts_dir.items():
-            pairs.append ((acc_id,acc.outgoing))
-        pairs.sort(key=lambda x: (-x[1],x[0]))
-        result =[]
-        for acc_id, total in pairs[:max(0, n)]:
-            result.append(f"{acct_id({total})}")
-        
-        return result
-        
-        #pseduocode bd test wrapper
-       """ 
-       class Spender:
-            def_init__(self, account_id:str, out)
-            self.account_id = account_id
-            self.outgoing = outgoing
-            
-       def top_spenders(self, timestamp: int, n: int) -> list[str]:
-           spender = []
-           for account_id, acc in self.accounts_dir.items():
-               spenders.append(Spender(acc_id, acc.outgoing))
-               
-            spenders.sort(key=lamba s: (-s.outgoing, s.account_id))
-           return [f"{s.account_id}({s.outgoing})" for s in spenders[:n]]"""
-        '''
     @update_transactions
     def pay(self, timestamp: int, account_id: str, amount: int) -> str | None:
         """
@@ -190,26 +162,20 @@ class BankingSystemImpl():
         #  implementation
         # check for account
         if self.accounts_dir.get(account_id, Account(-1, -1, 0) ).balance >= amount:
-                # make transaction
             transaction = Transaction(account_id, -amount, timestamp)
             self.transactions.get(account_id).append(transaction)
             self.num_payments +=1
             acct = self.accounts_dir.get(account_id)
             acct.spent += amount
             acct.balance -= amount
-            #transaction.status = "IN_PROGRESS"
-            #transaction.cashback_timestamp = timestamp + 86400000
-            #no need for a cashback timestamp; treat the cashback as its on transaction with the cashback time as timestamp
+   
             payment_id = f"payment{self.num_payments}"
             future_deposit = Transaction(account_id, int(amount * .02), 
                                          timestamp + 86400000, payment_id=payment_id, processed="IN_PROGRESS")
             self.transactions.get(account_id).append(future_deposit)
-            #print(f"{transaction.cashback_timestamp}: {account_id}, balance: {acct.balance}, cashback: {int(amount * 0.02)}")
-            #self.transactions.get(account_id, future_deposit)
-            #push onto heap
+         
             heapq.heappush(self.scheduled_transactions, future_deposit)
-            #heapq.heapify(self.scheduled_transactions)
-            #payment_id = f"payment{self.num_payments}"
+        
             self.payments[payment_id] = future_deposit
             return payment_id
         else:
@@ -250,7 +216,7 @@ class BankingSystemImpl():
         
         return transaction.status
 
-        
+    @update_transactions
     def merge_accounts(self, timestamp: int, account_id_1: str, account_id_2: str) -> bool:
         """
         Should merge `account_id_2` into the `account_id_1`.
@@ -282,14 +248,9 @@ class BankingSystemImpl():
         #  implementation
         if account_id_1 == account_id_2:
             return False
-        if account_id_1 is None or account_id_2 is None:
-            return False
-        if not account_id_1 or not account_id_2:
-            return False
-
-
+    
         for i in self.scheduled_transactions:
-            print(i)
+    
             if i.source_id == account_id_2:
                 i.source_id = account_id_1
 
@@ -297,66 +258,50 @@ class BankingSystemImpl():
         acct2 = self.accounts_dir.get(account_id_2)
         if acct1 is None or acct2 is None:
             return False
-
+        acct2.deltime = timestamp
         acct1.balance += acct2.balance
         acct1.spent += acct2.spent
-        print(f"Account id changed, merged {account_id_2} into {account_id_1}")
+        #print(f"Account id changed, merged {account_id_2} into {account_id_1}")
+        self.transactions[account_id_1].extend(self.transactions[account_id_2])
+        self.archived_transactions[account_id_2] = self.transactions[account_id_2]
+        self.archived_accounts[account_id_2] = self.accounts_dir.get(account_id_2)
 
         self.accounts_dir.pop(account_id_2,None)
-
+        self.transactions.pop(account_id_2,None)
+        
         self.sorted_spenders = [ acc for acc in self.sorted_spenders if acc.account_id != account_id_2]
+        
 
         return True
 
+    
     @update_transactions
     def get_balance(self, timestamp: int, account_id: str, time_at: int) -> int | None:
         """
         Should return the total amount of money in the account
         `account_id` at the given timestamp `time_at`.
-        If the specified account did not exist at a given time
-        `time_at`, returns `None`.
-          * If queries have been processed at timestamp `time_at`,
-          `get_balance` must reflect the account balance **after** the
-          query has been processed.
-          * If the account was merged into another account, the merged
-          account should inherit its balance history.
         """
-        #  implementation
-        account_transactions = self.transactions.get(account_id)
-        if account_transactions is None:
+        acct = self.accounts_dir.get(account_id) if account_id in self.accounts_dir else self.archived_accounts.get(account_id)
+        
+        if acct is None or acct.deltime <= time_at:
             return None
-        if self.accounts_dir.get(account_id).timestamp > time_at: # creation of account is after time_at
+        
+        if acct.timestamp > time_at:
             return None
-        pass
-    
-    
-            # deposit()
-            # timestamp: int, account_id: str, amount: int
-    
-    """@update_transactions
-def get_balance(self, timestamp: int, account_id: str, time_at: int) -> int | None:
-    """
-    Should return the total amount of money in the account
-    `account_id` at the given timestamp `time_at`.
-    """
-    acct = self.accounts_dir.get(account_id)
-    if acct is None:
-        return None
 
-    if acct.timestamp > time_at:
-        return None
-
-    txs = self.transactions.get(account_id, [])
+        txs = self.transactions.get(account_id, []) if account_id in self.accounts_dir else self.archived_transactions[account_id]
+        
+        balance = 0
     
-    balance = 0
-    for tx in sorted(txs, key=lambda t: t.timestamp):
-        if tx.timestamp <= time_at:
-            balance += tx.amount
-        else:
-            break
+        for tx in sorted(txs, key=lambda t: t.timestamp):
+            if tx.timestamp <= time_at:
+                if tx.source_id == account_id or self.archived_accounts[tx.source_id].deltime <= time_at:
+                    balance += tx.amount
+            else:
+                break
 
-    return balance"""
+        return balance
 
     # TODO: implement interface methods here
-# bofa = BankingSystemImpl()
-# bofa.create_account(1,"account1")
+    # bofa = BankingSystemImpl()
+    # bofa.create_account(1,"account1")

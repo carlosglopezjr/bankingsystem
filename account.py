@@ -10,6 +10,7 @@ class Account:
         self.balance = balance
         self.account_id = account_id
         self.spent = 0
+        self.deltime = float('inf')
 
     def __str__(self):
         return f"account timestamp: {self.timestamp}, balance: {self.balance}, accountid: {self.account_id}"
