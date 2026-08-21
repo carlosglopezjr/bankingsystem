@@ -222,3 +222,202 @@ None
 ---
 
 ## Data Structures
+
+The implementation uses several Python data structures
+
+### Dictionaries
+
+self.accounts_dir
+self.transactions
+self.payments
+self.archived_transactions
+self.archived_accounts
+
+Dictionaries provide fast lookup of accounts, transactions, and payments using identifiers.
+
+### Lists
+self.sorted_spenders
+self.completed_transactions
+
+Lists are used to maintain account rankings and transaction collections
+
+### Priority Queue
+self.scheduled_transactions
+
+Scheduled cashback transactions are maintained using Python's heapq.
+
+Because transactions implement:
+
+```python
+def__lt__(self, other):
+return self.timestamp < other.timestamp
+```
+
+the heap automatically prioritizes the transaction with the earliest timestamp.
+
+---
+
+## Classes
+
+### BankingSystemImpl
+
+The primary banking system class
+
+It manages:
+- Accounts
+- Transactions
+- Deposits
+- Transfers
+- Payments
+- Cashback
+- Spending rankings
+- Account merging
+- Historical balances
+
+---
+
+### Account
+
+Represents an individual banking acocunt
+
+Each account stores:
+
+```python
+timestamp
+balance
+account_id
+spent
+deltime
+```
+
+Example:
+```python
+account = Account(
+account_id = "Alice",
+timestamp = 1
+)
+```
+
+---
+### Transaction
+
+Represents a banking transaction.
+
+Each transaction stores:
+
+```python
+source_id
+timestamp
+amount
+status
+payment_id
+```
+
+Transactions are comparable by timestamp, which allows them to be stored in a priority queue.
+
+---
+
+## Example Usage
+
+```python
+bank = BankingSystemImpl()
+
+bank.create_account(1,"Alice")
+bank.create_account(2,"Bob")
+
+bank.deposit(3,"Alice",1000)
+
+bank.transfer(
+4,
+"Alice",
+"Bob",
+200
+)
+
+payment_id = bank.pay(
+5,
+"Alice",
+100
+)
+
+print(payment_id)
+```
+
+Example output
+
+```python
+payment1
+```
+
+Check the payment:
+
+```python
+status = bank.get_payment_status(
+6,
+"Alice",
+payment_id
+)
+
+print(status)
+```
+
+Output:
+
+IN_PROGRESS
+
+After the cashback timestamp is reached, the status becomes:
+
+CASHBACK_RECEIVED
+
+---
+
+## Project Structure
+
+A typical project layout looks like:
+│
+├── banking_system.py
+├── banking_system_impl.py
+├── tests/
+│   └── test_banking_system.py
+└── README.md
+
+The implementation currently defines the Account and Transaction classes alongside banking_system_impl
+
+---
+
+## Requirements
+
+- python 3.10+
+- Standard Python library
+
+The implementation uses:
+
+```python
+import heapq
+```
+
+--- 
+
+## Key Concepts Demonstracted
+
+This project demonstrates several important programming and data-structure concepts
+- Object-oriented programming
+- Dictionaries and hash-based lookup
+- Priority queues/ heaps
+- Transaction history
+- Scheduled event processing
+- Decorators
+- Custom object comparison
+- Sorting with custom keys
+- State management
+- Historical data reconstruction
+
+---
+
+## Notes
+Scheduled cashback processing is integrated into banking operations using a decorator. This allows pending transactions to be processed automatically before operations such as deposits, transfers, payments, and account queries.
+The system also maintains archived account and transaction information so historical queries can continue to work after accounts have been merged.
+
+
+
+
