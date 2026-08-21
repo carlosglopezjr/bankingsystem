@@ -133,3 +133,92 @@ Scheduled cashback transactions are stored in a priority queue using Pythons's h
 
 ---
 
+## Payment Status
+
+Payment status can be checked using:
+
+```python
+get_payment_status(timestamp, account_id, payment)
+```
+
+A payment can have one of two statuses:
+
+IN_PROGRESS
+
+or:
+
+CASHBACK_RECEIVED
+
+The payment begins as IN_PROGRESS and becomes CAHSBACK_RECEIVED once the scheduled cashback is processed.
+
+---
+
+## Scheduled Transaction Processing
+
+Several banking methods use the updated_transactions decorator.
+
+Before the requested banking operation executes, the decorator checks whether any scheduled cashback transactions are due.
+
+If a cashback transaction has reached its scheduled timestamp, the system:
+
+1. Retrieves the scheduled transaction
+2. Adds the cashback amount to the appropriate account
+3. Updates the payment status to CASHBACK_RECEIVED
+4. Removes the transaction from the priority queue
+
+This ensures that scheduled cashback is processed before other operations occurring at the same timestamp.
+
+--- 
+
+## Account Merging
+
+Two accounts can be combined using:
+
+```pyton
+merge_accounts(
+timestamp,
+account_id_1,
+account_id_2
+)
+```
+
+account_id_2 is merged into account_id_1.
+
+During a successful merge:
+- The balance of account 2 is added to account 1
+- The spending totals are combined
+- Transaction histories are combined
+- Pending cashback payments are redirected to account 1
+- Account 2 is archived
+- Account 2 is removed from the active account directory
+
+The merge fails if:
+- Both account IDs are identical
+- Either account does not exist
+
+Archived data is retained so that historical balance queries can still access information about merged accounts.
+
+---
+
+## Historical Balance Lookup
+
+The system supports retrieving the balance of an account at an earlier timepoint.
+
+```python
+get_balance(timestamp, account_id, time_at)
+```
+
+The method reconstructs the account balance by examining transactions that occurred on or before time_at.
+
+It also check whether:
+- The account existed at the requested time
+- The account had already been merged or deleted
+- The requested timestamp occurred before the account was created
+
+If the account did not exist at the requested time, the method returns:
+
+None
+
+---
+
+## Data Structures
